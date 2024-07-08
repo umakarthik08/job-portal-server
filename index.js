@@ -31,12 +31,29 @@ async function run() {
 
     const db = client.db("mernJobPortal");
     const jobCollections = db.collection("demoJobs");
+    const jobApplications = db.collection("jobApply");
 
     app.post("/post-job", async (req, res) => {
       const body = req.body;
       body.createAt = new Date();
       // console.log(body)
       const result = await jobCollections.insertOne(body);
+      if (result.insertedId) {
+        return res.status(200).send(result);
+      }
+      else {
+        return res.status(404).send({
+          message: "can not insert",
+          status: false
+        })
+      }
+    })
+
+    app.post("/apply-job", async (req, res) => {
+      const body = req.body;
+      body.createAt = new Date();
+      // console.log(body)
+      const result = await jobApplications.insertOne(body);
       if (result.insertedId) {
         return res.status(200).send(result);
       }
@@ -58,9 +75,22 @@ async function run() {
       res.send(job);
     })
 
+    app.get("/my-applications/:email", async (req, res) => {
+      const job = await jobApplications.find({ email: req.params.email }).toArray();
+      res.send(job);
+    })
+
     app.get("/all-jobs/:id",async(req,res) => {
       const id = req.params.id;
       const job = await jobCollections.findOne({
+        _id: new ObjectId(id)
+      })
+      res.send(job)
+    })
+
+    app.get("/all-applications/:id",async(req,res) => {
+      const id = req.params.id;
+      const job = await jobApplications.findOne({
         _id: new ObjectId(id)
       })
       res.send(job)
@@ -81,6 +111,21 @@ async function run() {
       res.send(result)
     })
 
+    app.patch("/update-application/:id",async(req,res) =>{
+      const id = req.params.id;
+      const jobData = req.body;
+      const filter = {_id: new ObjectId(id)}
+      const options = {upsert: true};
+      const updateDoc = {
+        $set:{
+          ...jobData
+        },
+      };
+
+      const result = await jobApplications.updateOne(filter,updateDoc,options);
+      res.send(result)
+    })
+
     app.delete("/job/:id", async (req, res) => {
       const id = req.params.id;
       const filter = { _id: new ObjectId(id) };
@@ -96,6 +141,22 @@ async function run() {
           res.status(500).json({ acknowledged: false, error: 'An error occurred' });
       }
   });
+
+  app.delete("/application/:id", async (req, res) => {
+    const id = req.params.id;
+    const filter = { _id: new ObjectId(id) };
+
+    try {
+        const result = await jobApplications.deleteOne(filter);
+        if (result.deletedCount > 0) {
+            res.json({ acknowledged: true });
+        } else {
+            res.json({ acknowledged: false });
+        }
+    } catch (error) {
+        res.status(500).json({ acknowledged: false, error: 'An error occurred' });
+    }
+});
 
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
